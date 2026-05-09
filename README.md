@@ -1,0 +1,138 @@
+# baton
+
+Author a thorough next-session continuation prompt that a cold session can execute end-to-end without the prior session's context.
+
+The "baton" is the artifact a cold session reads to pick up where the prior session left off. A good baton lets a fresh session walk the work end-to-end without needing the prior session in-context. A bad baton produces hours of "what does this mean?" plus accidental scope-creep plus missed verification.
+
+## What it does
+
+- Captures **state inventory** — commits + decisions + execution + war stories + scope ceiling — before drafting
+- Produces a **24-section continuation prompt** with cold-start reads, verification ledger, embedded execution commands, decision tree, and self-test
+- Adds a **macro-context anchor** when a master baton, North Star spec, sprint plan, or `CONTEXT.md` exists for the overarching project
+- Runs a 5-step pattern: state-inventory → draft → self-audit → cold-session dry-run → close gaps → emit observability event
+- Emits a `baton_emitted` event with line count + section count + self-test score for daily-feedback observability
+- Logs each invocation to a per-skill autoresearch self-assessment file so improvements compound across runs
+
+## Quick start
+
+```bash
+# Anywhere with this skill installed:
+"write the baton"
+"/baton"
+"make a baton"
+"continuation prompt"
+```
+
+The skill writes to `<workspace>/agents/<agent>/data/<YYYY-MM-DD>-next-session-<topic>-prompt.md` (or whatever `data/`-equivalent your fleet uses). The file is gitignored by Atlas convention because it's per-session scratch.
+
+## When to invoke
+
+- Session shipped artifacts the next session needs to act on (specs, ADRs, partial implementations)
+- Session surfaced operator-decision flags that next session must resolve
+- Session shipped Tier-0/-1 work with follow-on Tier-2/-N
+- Session ran PRISM that produced a mechanical-fix list or NEEDS-WORK verdict
+- Session built half a feature and needs the other half
+
+**Skip when:**
+
+- Session completed all its work end-to-end (use `session-end` only — no baton needed)
+- Session was open-ended exploration with no concrete next-session shape
+- Session is a 1-2 message Q&A
+- Operator says "no continuation needed"
+
+## Compatibility
+
+Designed around Atlas agent fleet conventions:
+
+- A per-session scratchpad directory (`data/` in Atlas agent workspaces; gitignored)
+- A `memory/` diary file format with YAML frontmatter and an index file
+- A bus event emitter (`<bus-emit-script>` in Atlas)
+- An agent-common conventions doc (`<universal-conventions-doc>` in Atlas)
+
+Portable to other agent runtimes if the host fleet has equivalents for the four points above. Shell + bash are the only hard tool dependencies; everything else is convention.
+
+If your runtime lacks a bus, the `baton_emitted` step degrades gracefully — the skill writes the autoresearch row regardless, so the daily-feedback signal still compounds.
+
+## Configuration — adapting to your fleet
+
+The skill text uses Atlas conventions for clarity (specific paths and tool names). Map them to your fleet's equivalents:
+
+| Atlas convention | Your fleet's equivalent |
+|---|---|
+| `<workspace>/agents/<agent>/data/<filename>.md` (baton output path) | Wherever your per-session scratchpad lives — gitignored, FS-only |
+| `<workspace>/agents/<agent>/memory/<topic>.md` (diary path) | Your fleet's session-diary format with YAML frontmatter |
+| `<workspace>/agents/<agent>/memory/MEMORY.md` (diary index) | Your fleet's index file pointing at all diaries |
+| `<bus-emit-dir>/<bus-emit-script>` | Your fleet's lightweight event emitter (or `:` no-op if no bus) |
+| `<shared-docs>/<universal-conventions-doc>` | Your fleet's universal-conventions doc |
+| `<fleet-docs>/<workspace-layout-doc>` | Your fleet's workspace-schema doc |
+| `<skill-dir>/<skill-name>/SKILL.md` | Your skill installation root |
+| `pending_approvals` SQL example | Substitute any DB / table relevant to your fleet |
+
+The skill author's machine is a single-Mac multi-agent setup; the conventions baked in reflect that. Nothing in the algorithm requires Atlas — only the worked examples do. When in doubt, follow the structural pattern (24 required sections, 5-step process, 9-question self-test) and substitute paths.
+
+## Self-Test (target ≥7/9)
+
+| # | Question |
+|---|----------|
+| 1 | Did I do the state-inventory FIRST (Step 0) — commits + decisions + execution + war stories + scope ceiling? |
+| 2 | Does the 60-second recap actually answer "where am I, what just happened, what do I do next" in one screenful? |
+| 3 | Are operator quotes preserved verbatim (not paraphrased)? |
+| 4 | Does each operator-decision flag have full trade-off context + recommended answer? |
+| 5 | Does each step have an embedded verification command (1-line bash/curl/sqlite3) the cold session can run? |
+| 6 | Did I dry-run the prompt as a cold session and apply ALL friction-point fixes? |
+| 7 | Are war stories from THIS session connected to next-session steps where they apply? |
+| 8 | Does the prompt include a self-test (boolean checklist defining "done") for the cold session? |
+| 9 | Did I check for a macro/vision/context/master-baton doc and either (a) reference it in §2 + cold-start reads, or (b) confirm none exists? |
+
+Below 6/9 is high probability of cold-session misdirection — iterate before shipping.
+
+## Anti-patterns
+
+The skill explicitly catches and refuses these failure modes:
+
+- "Read the prior session diary" as the only context — diaries are narrative, not action plans
+- "Continue from where we left off" without specifying *where*
+- Lists of work without effort estimates
+- Operator-decision flags without trade-offs or recommended answers
+- No DO-NOT list (cold session scope-creeps without one)
+- No verification commands ("make sure X works" is not actionable)
+- Stale numbers inline (cite the verify-script + invocation, never bake-in)
+- No self-test (cold session has no way to know it's done)
+
+## Pairs with
+
+- `session-end` — closing-doc ritual; baton is one optional output of session-end
+- `pre-pr` — sibling Process & Workflow skill with the same Q14 / autoresearch pattern
+- `verification-before-completion` — "evidence before assertions" is the principle baton operationalizes for the next session
+- `boil-the-ocean` — the discriminator for "is the cold-session prompt complete or am I shipping 80%"
+
+## File structure
+
+```
+baton/
+├── SKILL.md                # Skill instructions + frontmatter
+├── LICENSE.txt             # MIT
+├── README.md               # This file
+└── references/
+    ├── template.md         # 24-section structural template
+    ├── example.md          # Pointer to canonical 580-line example
+    └── AUTORESEARCH-SELF-ASSESSMENT.md  # One row per baton authored — daily improvements log
+```
+
+## Limitations
+
+1. **State-inventory at context-exhaustion.** If the session ran 4h+ and you're invoking baton at the very end with low remaining context, state-inventory quality drops. Mitigation: invoke earlier, not as a death-rattle ritual.
+2. **Operator silent on decision flags.** When the session ends with N flags surfaced but no answers, the baton's flag section becomes "options + my recommendation" — that's correct, not a gap. Anti-pattern is dropping the flag.
+3. **Dry-run skipped under time pressure.** The most-skipped step (Step 3 dry-run is "re-read what you just wrote" which feels redundant). Self-Test Q6 is the gate.
+4. **Skill mistaken for session-end.** baton is OPTIONAL; session-end is mandatory. Don't author batons reflexively — only when there's concrete carry-forward.
+5. **Frontmatter / sections drift over versions.** As host fleet conventions evolve, the 24-section template may go stale. The autoresearch log is the canary — friction-point trend up means the template needs review.
+
+## License
+
+MIT — see LICENSE.txt.
+
+## Author
+
+Jeremy Jannielli ([@jeremyknows](https://github.com/jeremyknows))
+
+Skill extracted from the 2026-05-08 Atlas bus-North-Star session that produced the canonical 580-line / 46.8KB cold-start-ready continuation prompt.
