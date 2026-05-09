@@ -55,20 +55,20 @@ If your runtime lacks a bus, the `baton_emitted` step degrades gracefully — th
 
 ## Configuration — adapting to your fleet
 
-The skill text uses Atlas conventions for clarity (specific paths and tool names). Map them to your fleet's equivalents:
+The skill assumes these shapes. Map each to your fleet's equivalent:
 
-| Atlas convention | Your fleet's equivalent |
+| What the skill expects | What your fleet provides |
 |---|---|
-| `<workspace>/agents/<agent>/data/<filename>.md` (baton output path) | Wherever your per-session scratchpad lives — gitignored, FS-only |
-| `<workspace>/agents/<agent>/memory/<topic>.md` (diary path) | Your fleet's session-diary format with YAML frontmatter |
-| `<workspace>/agents/<agent>/memory/MEMORY.md` (diary index) | Your fleet's index file pointing at all diaries |
-| `<bus-emit-dir>/<bus-emit-script>` | Your fleet's lightweight event emitter (or `:` no-op if no bus) |
-| `<shared-docs>/<universal-conventions-doc>` | Your fleet's universal-conventions doc |
-| `<fleet-docs>/<workspace-layout-doc>` | Your fleet's workspace-schema doc |
-| `<skill-dir>/<skill-name>/SKILL.md` | Your skill installation root |
-| `pending_approvals` SQL example | Substitute any DB / table relevant to your fleet |
+| Per-session scratchpad at a path like `<workspace>/agents/<agent>/data/<filename>.md` | A writable, gitignored directory for session-scoped scratch |
+| Diary file at `<workspace>/agents/<agent>/memory/<topic>.md` with YAML frontmatter | Your fleet's session-diary format (the skill assumes `name`, `description`, `type` keys) |
+| Diary index at `<workspace>/agents/<agent>/memory/MEMORY.md` | Your fleet's per-agent diary index file |
+| A bus event emitter (default invocation: `<bus-emit-script>`) | Your fleet's lightweight event emitter — or `:` (no-op) if no bus exists |
+| A universal-conventions doc (the skill auto-imports `<universal-conventions-doc>`) | Your fleet's equivalent doc, or skip the import line |
+| A workspace-schema doc (referenced as `<workspace-layout-doc>`) | Your fleet's equivalent — purely informational |
+| Skill installation root at `<skill-dir>/<skill-name>/SKILL.md` | Wherever your runtime loads skills from |
+| `pending_approvals` SQL example | Substitute any DB/table relevant to your fleet |
 
-The skill author's machine is a single-Mac multi-agent setup; the conventions baked in reflect that. Nothing in the algorithm requires Atlas — only the worked examples do. When in doubt, follow the structural pattern (24 required sections, 5-step process, 9-question self-test) and substitute paths.
+Nothing in the algorithm requires a specific fleet — only the worked examples do. When in doubt, follow the structural pattern (24 required sections, 5-step process, 9-question self-test) and substitute paths. The skill author's machine is a single-Mac multi-agent setup; the conventions baked in reflect that.
 
 ## Self-Test (target ≥7/9)
 
