@@ -12,6 +12,9 @@ description: |
   compactions, repos, or gates. Stable across sessions; session batons cite it as their
   first context load. Triggers: "/master-baton", "master baton", "cross-session baton",
   "vision baton".
+  SECTION CLOSURE (/baton-close): mark completed sections in an existing multi-section
+  baton so a cold session doesn't re-execute closed work. Triggers: "/baton-close",
+  "mark section closed", "update the baton", "close section X".
   NOT FOR — sessions that complete all their work (use session-end only) or open-ended
   exploratory sessions with no obvious next-session shape.
 license: MIT
@@ -23,7 +26,7 @@ compatibility: |
   dependencies; everything else is convention.
 metadata:
   author: jeremyknows
-  version: "1.3.0"
+  version: "1.4.0"
   category: "Business Process Automation"
   tags: [continuation, session-handoff, meta-skill, observability, daily-feedback]
 ---
@@ -59,7 +62,16 @@ Trigger phrases: "write the baton", "/baton", "make a baton", "continuation prom
 
 Trigger phrases: "/master-baton", "master baton", "cross-session baton", "vision baton"
 
-See `references/master-baton-pattern.md` for the master baton shape (16-point required structure, recommended location, pitfalls).
+See `references/master-baton-pattern.md` for the master baton shape (16-point required structure, recommended location, pitfalls). When a master baton moves from exploration/grill into artifactization or implementation, also read `references/master-baton-checkpoint-validation.md` and run its checkpoint pass before creating downstream artifacts.
+
+### Section closure — `/baton-close`
+
+**Invoke when:**
+- Session completed one or more sections of an existing multi-section baton but NOT all sections
+- The baton file still shows completed sections as live work — a cold session would re-execute them
+- Operator says "/baton-close", "mark section closed", "close section X", "update the baton"
+
+Trigger phrases: "/baton-close", "mark section closed", "update the baton", "close section X", "mark X done in the baton"
 
 ### Skip when (both modes)
 
@@ -76,6 +88,7 @@ See `references/master-baton-pattern.md` for the master baton shape (16-point re
 |------|---------|-------|
 | **Session baton** | `/baton`, "write the baton" | 0 → 1 → 2 → 3 → 4 → 5 → 6 |
 | **Master baton** | `/master-baton`, "master baton" | 0 → 1M → 2 → 3 → 6 |
+| **Section closure** | `/baton-close`, "mark section closed" | 1C → 6 |
 
 Both modes share Step 0 (state-inventory), Steps 2–3 (self-audit + dry-run), and Step 6 (emit + autoresearch row). Session mode uses Step 1 (24-section draft). Master mode uses Step 1M (macro orientation doc) and skips Steps 4–5 (dry-run gap-closing and session-end cite).
 
@@ -95,21 +108,84 @@ If these aren't answered before drafting, the prompt will be vague + the dry-run
 
 **Tip:** if your session ran a PRISM that produced findings, the synthesis archive IS most of your state-inventory. Reference it by path; don't restate.
 
+### Step 0C — Consolidation mode for multiple old sessions / compacted chats
+
+If consolidation is the main task rather than a substep of baton authoring, load the `continuity-consolidation` skill first. Use this section as the baton-specific adapter when the operator says multiple old sessions/chats produced overlapping batons, summaries, draft docs, or handoffs and asks to "consolidate", "close them", "ensure baton coverage", or "update the registry".
+
+Do **not** ask each old session to independently write a baton. That creates duplicate authoritative surfaces. Instead:
+
+1. Inventory all evidence surfaces first: session IDs, transcript exports, continuity scratchpads, memory files, draft docs, existing master/session batons, and `_master-batons.md`.
+2. Classify every source into one bucket: already covered; patch existing master baton; create narrow session baton; promote to new master baton; close/archive/supersede.
+3. Register all master batons, and register only the discoverability-worthy minority of session batons: expected 3+ sessions, unresolved operator decisions, cross-agent sequencing, gateway/profile/runtime transitions, or high-risk continuity a cold session must find without already knowing the filename. Do **not** turn the registry into a list of every one-shot continuation prompt.
+4. Prefer patching an existing master arc over creating a new one. A new master baton is justified only when the work is durable, multi-session, and not already represented by an active registry row.
+5. Separate **active refs** from **historical evidence**. Patch active docs/prompts/continuity notes that would mislead a cold session; do not rewrite transcript-review archives or PRISM evidence unless adding an explicit superseded note.
+6. If a registry row points at gitignored `agents/*/data/` session batons, verify the files exist locally and state that they are local continuity artifacts, not versioned docs.
+7. Use parallel subagents for independent domains (e.g. runtime architecture, browser capability, BlueBubbles, chief-of-staff/GBrain), then independently verify their claims against files/tests before editing.
+8. Write one consolidation audit note in the continuity scratchpad summarizing the final map: existing master arcs, new session batons, superseded batons, stale facts not to trust, and remaining gates.
+9. Update `_master-batons.md` last, after filesystem truth is settled.
+
+Common consolidation anti-pattern: creating one new baton per old chat. The desired output is usually fewer authoritative surfaces, not more.
+
 ### Step 1M — Master baton mode (~30-60 min)
 
 *Use for `/master-baton` invocations. Skip for `/baton` (go to Step 1 instead).*
 
 Write a macro orientation document. Later session-level batons cite it as their first context load — it is NOT a session execution prompt itself.
 
-Use `references/master-baton-pattern.md` as the checklist. Key differences from a session baton:
+**FIRST — check the registry.** Read `<shared-wiki>/_master-batons.md` (the canonical baton registry as of 2026-05-10). If a master baton for this arc already exists, **patch it rather than create a new one** — duplicate master batons are the recurring anti-pattern in this skill (see Pitfalls below). The registry's Active Master Batons table is the source of truth; `references/master-baton-pattern.md` Example anchors may drift.
+
+Use `references/master-baton-pattern.md` as the checklist (10 Required + 4 Conditional sections per the 2026-05-10 revision). For a narrower follow-on baton after a master baton, see `references/role-crystallization-pattern.md` — it captures the master-baton → matrix → grill sequence. Key differences from a session baton:
 
 - Store it in the owning docs namespace (`~/projects/<repo>/docs/<workstream>/...` or `<workspace>/agents/<agent>/docs/...`), not a gitignored session `data/` path.
 - Preserve the operator's exact intent and why the arc matters.
-- Inventory authoritative files, branch/dirty state, relevant commits, current gates/phases, next safe slice, and carry-forwards.
+- Inventory authoritative files, branch/dirty state (only if multi-repo or dirty), relevant commits, current gates/phases (only if gate-driven), next safe slice, and carry-forwards.
 - Emphasize sequencing and evidence boundaries over step-by-step implementation.
+- If the arc has a paired operator-facing vision/spec/narrative doc, name the pair explicitly and add a short sync invariant: baton = continuity/live state; spec = architecture/narrative; update both when evidence, gates, risk posture, terminology, or architecture claims change. See `references/twin-anchor-runtime-campaign.md` for the pattern extracted from the Atlas runtime-independence campaign.
+- For risky runtime/infra migration arcs, prefer a sacrificial mock/test harness before established production agents/routes. Name this in the master baton as a safety doctrine, not just a next task.
 - Add a pointer from the owning docs index/README when one exists.
+- **Append a row to `<shared-wiki>/_master-batons.md`** (Active Master Batons section) once the file is authored. Underscore-prefix wiki control file convention — any agent appends.
+- If the operator is confused about where an arc is tracked, first read the registry, then `find`/`grep` for `*baton*` as a fallback. Patch the authoritative master baton with a tracking-surface map and adjacent-baton links rather than creating duplicate sources of truth. If context is bloated, write a short `data/` recovery prompt that points back to the master baton.
+
+When retiring a master baton: move its row from Active to Archived in `_master-batons.md`, add a retirement banner to the top of the baton file (don't delete or move the file), and ensure a closeout memory diary exists at the cited path.
 
 Then continue with self-audit, dry-run, autoresearch row, and `baton_emitted` just like a normal baton.
+
+### Step 1C — Section closure mode (~5 min)
+
+*Use for `/baton-close` invocations. Skip for `/baton` and `/master-baton`.*
+
+Mark completed sections in an existing multi-section baton so a cold session doesn't re-execute closed work. Do NOT re-draft, re-audit, or re-dry-run the full baton — this step touches only closure markers and frontmatter.
+
+**1. Read the target baton** (path provided, or the most recent session baton if omitted).
+
+**2. Identify which sections closed this session.** Cross-reference LAST_SESSION.md, today's memory diary, or operator confirmation. A section is "closed" when its acceptance criteria passed and its artifacts are committed/verified — not merely attempted.
+
+**3. Add a closure marker** immediately under each completed section header:
+
+```
+### §A First-fire post-mortem
+**STATUS: CLOSED 2026-05-11** — [one-line outcome, e.g. "post-mortem complete, hybrid relay confirmed correct"]
+```
+
+**4. Update frontmatter:**
+
+- If ALL sections are now closed: set `status: RETIRED YYYY-MM-DD` and add `retired_by: <diary path>`
+- If sections are PARTIALLY closed: keep `status: active`, add:
+  ```yaml
+  closed_sections: [A, B]
+  open_sections: [C]
+  ```
+
+**5. Proceed directly to Step 6.** Emit `baton_emitted` with `partial_closure: true`:
+
+```bash
+bash "$EMIT" <agent> baton_emitted \
+  "Baton updated (partial closure): $(basename "$BATON_PATH") — §[X,Y] closed, §[Z] open" \
+  "{\"baton_path\":\"$BATON_PATH\",\"partial_closure\":true,\"closed_sections\":\"[X,Y]\",\"open_sections\":\"[Z]\"}" \
+  completion
+```
+
+---
 
 ### Step 1 — Draft the session baton prompt (~20-40 min)
 
@@ -260,6 +336,12 @@ Full daily-improvements log: `references/AUTORESEARCH-SELF-ASSESSMENT.md` (creat
 - **No self-test** — cold session needs a way to know "am I done?" — boolean checklist with pass/fail items mirrors the war-story-lessons.
 - **Master baton treated like a normal session prompt** — master batons should orient an arc across sessions and point to the next safe slice; they should not pretend to be a single-session execution plan. Use `references/master-baton-pattern.md`.
 - **Live repo state overwritten by prior summary** — if the current branch/dirty state disagrees with a compacted summary or previous wrap-up, record the live state and interpretation explicitly. Master batons are where this ambiguity must be killed.
+- **Registry-first guessing** — do not update `_master-batons.md` before validating the underlying files. The registry indexes truth; it is not where you invent it.
+- **Historical transcript rewriting** — patch active continuation prompts/docs that would mislead a cold session, but leave transcript-review archives and PRISM evidence intact unless adding an explicit superseded note. Evidence should remain evidence.
+- **One-chat-one-baton sprawl** — when consolidating multiple old chats, collapse overlapping work into existing master arcs plus narrow session batons only where follow-up execution is real.
+- **Paired-anchor drift** — if a master baton has an adjacent vision/spec/HTML/narrative doc, do not update only the baton when campaign state changes. Add a named invariant (e.g. “Twin-Anchor Rule”) and patch both anchors when evidence, gates, risks, terminology, or architecture claims move.
+- **Production-agent validation as first proof** — for runtime/gateway/memory/control-plane campaigns, do not use a live trusted agent as the first validation target. Create a sacrificial mock/test agent or synthetic harness first; the baton should make that safety boundary explicit.
+- **Correct work on the wrong branch** — long-running campaigns often span repos and sessions; master batons must identify the active branch per repo and name branch-hygiene constraints (backup before sync, no casual merge commits, no committing doc-state changes to an unrelated feature branch without calling it out).
 
 ---
 
@@ -315,7 +397,10 @@ Or interleave: baton's state-inventory step (Step 0) IS most of what session-end
 - `<fleet-docs>/<workspace-layout-doc>` — canonical agent workspace schema (declares where `data/` lives, gitignore rules)
 - `<bus-emit-dir>/<bus-emit-script>` — bus event emission (Step 6 `baton_emitted`)
 - `references/template.md` — 23-section structural template (referenced from §1 Step 1)
+- `continuity-consolidation` skill — first-class workflow for consolidating old sessions/chats, shadow branches, overlapping docs, and baton sprawl into a source-of-truth map before baton-specific registry updates
 - `references/master-baton-pattern.md` — macro-baton checklist for multi-session / multi-repo / compaction-heavy arcs; use when the operator says "master baton"
+- `references/twin-anchor-runtime-campaign.md` — paired master-baton + vision/spec doc pattern for long-running runtime/infrastructure campaigns; includes mock-first safety and branch-hygiene notes
+- `references/master-baton-checkpoint-validation.md` — checkpoint pass for updating exploratory master batons after decisions crystallize, before downstream artifacts or implementation depend on them
 - `references/example.md` — canonical example (referenced from §Canonical example)
 - `references/AUTORESEARCH-SELF-ASSESSMENT.md` — daily improvements log (created by this audit; populated per invocation)
 - `bus event registration` — `baton_emitted` (and future `baton_consumed`) need to land in `<bus-emit-dir>/<bus-emit-script>` allowlist if they're not already auto-allowed. Check: `grep "baton_emitted" <bus-emit-dir>/<bus-emit-script>` — if absent, add to the info-severity allowlist via small follow-up commit.
@@ -324,6 +409,8 @@ Or interleave: baton's state-inventory step (Step 0) IS most of what session-end
 
 ## Changelog
 
+- **v1.4.0 — 2026-05-11 (section closure mode)** — Added `/baton-close` as a third mode for marking completed sections in an existing multi-section baton. Gap surfaced 2026-05-11: Terminal's cos-pulse soak interim baton closed §A + §B but the baton file wasn't updated, leaving phantom live work visible to the cold session. Mode path: 1C → 6 (no re-draft, no dry-run). Frontmatter gains `closed_sections` / `open_sections` lists; `baton_emitted` bus event gains `partial_closure: true` payload flag. Trigger: `/baton-close`, "mark section closed", "update the baton". Does not affect `/baton` or `/master-baton` flows.
+- **v1.3.1 — 2026-05-10 (checkpoint validation before artifactization)** — Added `references/master-baton-checkpoint-validation.md` and linked it from the master-baton workflow/dependencies. Use it when an exploratory master baton has moved through matrix/grill into artifact creation or implementation planning. It instructs agents to run PRISM-lite consistency review, mark superseded pre-grill language as historical, split resolved decisions from still-open questions, verify live profile/workspace/event/source state, and name the next downstream artifact set before building on the baton.
 - **v1.3.0 — 2026-05-10 (mode fork promoted to first-class)** — `/master-baton` added as an explicit trigger. "When to invoke" split into two subsections (session baton vs master baton). "The 5-step pattern" replaced with "The pattern (two modes)" — added mode fork table showing session path (0→1→2→3→4→5→6) vs master path (0→1M→2→3→6). Step 1A renamed to Step 1M with a clear skip directive. Step 1 header clarified as session-baton-only. Frontmatter description rewritten to lead with the two modes. No logic changes — purely surfacing the fork that existed in v1.2.0 but was buried.
 - **v1.2.0 — 2026-05-09 (master-baton variant promoted)** — Added explicit master-baton trigger and Step 1A. Created `references/master-baton-pattern.md` with class-level guidance for macro batons spanning many sessions, compactions, repos, gates, or workstreams. Added anti-patterns for treating a master baton like a normal session prompt and for trusting prior summaries over live repo state. **Origin:** Atlas OS master-baton session surfaced N>=2 real macro-baton cases (`atlas-extended-sprint-master-baton.md` and `atlas-os-master-baton.md`), enough to promote the deferred v1.1 mutation into the skill body.
 - **v1.1.0 — 2026-05-09 (master-baton-context addition)** — Added §2 Macro context anchor as a new conditional Required Section between One-line goal and 60-second context recap. When a master baton, North Star spec, sprint plan, or `CONTEXT.md` exists for the overarching project, the session baton must reference it in the anchor docs + add a "Macro context: where this session fits" section + add the doc to cold-start reads. Skip the section if no such doc exists. Self-Test extended 8 → 9 questions; target raised 6/8 → 7/9. Self-audit list extended with macro-doc check. Bus event `self_test_score` payload format updated to `<X/9>`. **Origin:** 2026-05-09 master baton authoring revealed the gap — operator (Jeremy) surfaced *"Worth adding to the baton skill? Something about referencing vision or context.md docs of the overarching project / sprint / direction?"* after consuming the master-baton-aware PR-A+B baton. Lightweight scope (option 🅐) elected; heavier "master-baton-creation as skill extension" deferred until N≥2 master batons exist (skill-doctor pattern: don't generalize from N=1).

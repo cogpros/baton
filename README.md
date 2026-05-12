@@ -1,44 +1,76 @@
 # baton
 
-Author a thorough next-session continuation prompt that a cold session can execute end-to-end without the prior session's context.
+Three-mode skill for session continuity. Author cold-session-executable prompts, orient multi-session arcs, and close out completed work — all with the same discipline.
 
 The "baton" is the artifact a cold session reads to pick up where the prior session left off. A good baton lets a fresh session walk the work end-to-end without needing the prior session in-context. A bad baton produces hours of "what does this mean?" plus accidental scope-creep plus missed verification.
 
+## Three modes
+
+| Mode | Trigger | When to use |
+|------|---------|-------------|
+| **Session baton** (`/baton`) | "write the baton", "/baton", "make a baton" | Session has concrete follow-on work for the next session |
+| **Master baton** (`/master-baton`) | "master baton", "/master-baton", "cross-session baton" | Work spans many sessions, context compactions, repos, or gates — needs a stable arc doc |
+| **Section closure** (`/baton-close`) | "/baton-close \<path\>", "mark section closed", "close section X" | Session completed some sections of a multi-section baton but not all — mark closed so cold sessions don't re-execute |
+
 ## What it does
 
+**Session baton (`/baton`):**
 - Captures **state inventory** — commits + decisions + execution + war stories + scope ceiling — before drafting
 - Produces a **24-section continuation prompt** with cold-start reads, verification ledger, embedded execution commands, decision tree, and self-test
 - Adds a **macro-context anchor** when a master baton, North Star spec, sprint plan, or `CONTEXT.md` exists for the overarching project
 - Runs a 5-step pattern: state-inventory → draft → self-audit → cold-session dry-run → close gaps → emit observability event
-- Emits a `baton_emitted` event with line count + section count + self-test score for daily-feedback observability
-- Logs each invocation to a per-skill autoresearch self-assessment file so improvements compound across runs
+
+**Master baton (`/master-baton`):**
+- Writes a **macro orientation doc** a cold session loads before the per-session baton — stable across compactions, repos, gates
+- NOT an execution prompt — orients the arc, identifies the next safe slice, inventories authoritative files and phases
+
+**Section closure (`/baton-close`):**
+- Reads an existing multi-section baton and **marks completed sections** with inline `STATUS: CLOSED` markers
+- Updates frontmatter with `closed_sections` / `open_sections` lists so the cold session's section selector is accurate
+- 5-minute operation: no re-draft, no dry-run — just state-transition markers + bus event
+
+All modes emit a `baton_emitted` bus event (with mode-appropriate payload) and log to a per-skill autoresearch self-assessment file so improvements compound.
 
 ## Quick start
 
 ```bash
-# Anywhere with this skill installed:
+# Session baton — pick up where you left off
 "write the baton"
 "/baton"
-"make a baton"
-"continuation prompt"
+
+# Master baton — orient a multi-session arc
+"/master-baton"
+"master baton"
+
+# Section closure — mark completed sections without re-drafting
+"/baton-close ~/path/to/existing-baton.md"
+"mark section A closed"
 ```
 
-The skill writes to `<workspace>/agents/<agent>/data/<YYYY-MM-DD>-next-session-<topic>-prompt.md` (or whatever `data/`-equivalent your fleet uses). The file is gitignored by Atlas convention because it's per-session scratch.
+The session baton writes to `<workspace>/agents/<agent>/data/<YYYY-MM-DD>-next-session-<topic>-prompt.md` (gitignored by Atlas convention).
+The master baton writes to a durable docs namespace (versioned, not gitignored).
 
 ## When to invoke
 
+**Session baton:**
 - Session shipped artifacts the next session needs to act on (specs, ADRs, partial implementations)
 - Session surfaced operator-decision flags that next session must resolve
-- Session shipped Tier-0/-1 work with follow-on Tier-2/-N
 - Session ran PRISM that produced a mechanical-fix list or NEEDS-WORK verdict
 - Session built half a feature and needs the other half
 
-**Skip when:**
+**Master baton:**
+- Work spans many sessions, context compactions, repos, or gates
+- A North Star doc, vision doc, or sprint plan needs to stay load-bearing across sessions
+- Operator says the shape is still unknown and wants a durable orientation artifact first
 
+**Section closure:**
+- Session completed one or more sections of an existing multi-section baton but NOT all sections
+- The baton file would mislead a cold session because completed sections still appear as live work
+
+**Skip when:**
 - Session completed all its work end-to-end (use `session-end` only — no baton needed)
 - Session was open-ended exploration with no concrete next-session shape
 - Session is a 1-2 message Q&A
-- Operator says "no continuation needed"
 
 ## Compatibility
 
@@ -46,8 +78,8 @@ Designed around Atlas agent fleet conventions:
 
 - A per-session scratchpad directory (`data/` in Atlas agent workspaces; gitignored)
 - A `memory/` diary file format with YAML frontmatter and an index file
-- A bus event emitter (`<bus-emit-script>` in Atlas)
-- An agent-common conventions doc (`<universal-conventions-doc>` in Atlas)
+- A bus event emitter (`emit-event.sh` in Atlas)
+- An agent-common conventions doc (`agent-common.md` in Atlas)
 
 Portable to other agent runtimes if the host fleet has equivalents for the four points above. Shell + bash are the only hard tool dependencies; everything else is convention.
 
@@ -114,9 +146,13 @@ baton/
 ├── LICENSE.txt             # MIT
 ├── README.md               # This file
 └── references/
-    ├── template.md         # 24-section structural template
-    ├── example.md          # Pointer to canonical 580-line example
-    └── AUTORESEARCH-SELF-ASSESSMENT.md  # One row per baton authored — daily improvements log
+    ├── template.md                         # 24-section structural template
+    ├── example.md                          # Pointer to canonical 580-line example
+    ├── master-baton-pattern.md             # Required structure for master batons (10 required + 4 conditional sections)
+    ├── master-baton-checkpoint-validation.md  # Checkpoint pass before downstream artifacts depend on master baton
+    ├── twin-anchor-runtime-campaign.md     # Pattern for paired master-baton + vision/spec doc
+    ├── role-crystallization-pattern.md     # master-baton → matrix → grill sequence
+    └── AUTORESEARCH-SELF-ASSESSMENT.md     # One row per baton authored — daily improvements log
 ```
 
 ## Limitations
