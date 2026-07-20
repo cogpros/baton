@@ -2,7 +2,7 @@
 name: baton
 runtime: portable
 description: |
-  Two modes — decide before invoking.
+  Four modes — decide before invoking. Batons are fractal: one at each scale of parkable work.
   SESSION BATON (/baton): next-session execution prompt a cold session can run end-to-end.
   24-section template: state-inventory + cold-start reads + verification + embedded commands
   + decision tree + war stories + self-test. Triggers: "/baton", "write the baton",
@@ -15,6 +15,10 @@ description: |
   SECTION CLOSURE (/baton-close): mark completed sections in an existing multi-section
   baton so a cold session doesn't re-execute closed work. Triggers: "/baton-close",
   "mark section closed", "update the baton", "close section X".
+  MICRO BATON (/baton micro): card-grade baton emitted as a kanban ticket body — six required
+  lines (STATE/TRIED/FILES/FIRST COMMAND/DONE-WHEN/SESSION) so a cold pickup session restarts
+  the card without re-gathering. Triggers: "/baton micro", "micro baton", "card baton",
+  "kanban baton", "park this as a card".
   NOT FOR — sessions that complete all their work (use session-end only) or open-ended
   exploratory sessions with no obvious next-session shape.
 license: MIT
@@ -26,7 +30,7 @@ compatibility: |
   dependencies; everything else is convention.
 metadata:
   author: jeremyknows
-  version: "1.4.0"
+  version: "1.5.0"
   category: "Business Process Automation"
   tags: [continuation, session-handoff, meta-skill, observability, daily-feedback]
 ---
@@ -73,7 +77,20 @@ See `references/master-baton-pattern.md` for the master baton shape (16-point re
 
 Trigger phrases: "/baton-close", "mark section closed", "update the baton", "close section X", "mark X done in the baton"
 
-### Skip when (both modes)
+### Micro baton — `/baton micro`
+
+**Invoke when:**
+- A close-out triage is promoting an unresolved item to a kanban card and the card needs a restart-ready body
+- You're parking a real work item (or an idea) below session scale — one ticket's worth of continuation
+- Operator says "/baton micro", "park this as a card", "make a card baton"
+
+**The rule:** no kanban ticket exists without a baton to feed its restart. Card creation and micro-baton authoring are the same act — pay the restart cost at write time (context hot), not read time (context cold).
+
+Trigger phrases: "/baton micro", "micro baton", "card baton", "kanban baton", "park this as a card"
+
+See `references/micro-baton-pattern.md` for the full pattern (six-line body, three guardrails, three-question self-test, wiring one template across N callers).
+
+### Skip when (all modes)
 
 - Session completed all work end-to-end (use `session-end` skill only — no baton needed)
 - Session was open-ended exploration with no concrete next-session shape
@@ -82,15 +99,18 @@ Trigger phrases: "/baton-close", "mark section closed", "update the baton", "clo
 
 ---
 
-## The pattern (two modes)
+## The pattern (four modes — batons are fractal)
 
-| Mode | Trigger | Steps |
-|------|---------|-------|
-| **Session baton** | `/baton`, "write the baton" | 0 → 1 → 2 → 3 → 4 → 5 → 6 |
-| **Master baton** | `/master-baton`, "master baton" | 0 → 1M → 2 → 3 → 6 |
-| **Section closure** | `/baton-close`, "mark section closed" | 1C → 6 |
+Every unit of parkable work gets a baton at its own scale: arc → session → section → card.
 
-Both modes share Step 0 (state-inventory), Steps 2–3 (self-audit + dry-run), and Step 6 (emit + autoresearch row). Session mode uses Step 1 (24-section draft). Master mode uses Step 1M (macro orientation doc) and skips Steps 4–5 (dry-run gap-closing and session-end cite).
+| Mode | Scale | Trigger | Steps |
+|------|-------|---------|-------|
+| **Master baton** | arc (many sessions/repos/gates) | `/master-baton`, "master baton" | 0 → 1M → 2 → 3 → 6 |
+| **Session baton** | one session's continuation | `/baton`, "write the baton" | 0 → 1 → 2 → 3 → 4 → 5 → 6 |
+| **Section closure** | a completed section within a baton | `/baton-close`, "mark section closed" | 1C → 6 |
+| **Micro baton** | one kanban card | `/baton micro`, "park this as a card" | 1μ → (6 optional) |
+
+The heavier modes share Step 0 (state-inventory), Steps 2–3 (self-audit + dry-run), and Step 6 (emit + autoresearch row). Session mode uses Step 1 (24-section draft). Master mode uses Step 1M (macro orientation doc) and skips Steps 4–5. Micro mode uses Step 1μ (six-line card body) — deliberately lightweight: its whole point is that authoring cost stays near-free at write time, so it skips the dry-run and inventory machinery and gates on a three-question self-test instead.
 
 ---
 
@@ -184,6 +204,48 @@ bash "$EMIT" <agent> baton_emitted \
   "{\"baton_path\":\"$BATON_PATH\",\"partial_closure\":true,\"closed_sections\":\"[X,Y]\",\"open_sections\":\"[Z]\"}" \
   completion
 ```
+
+---
+
+### Step 1μ — Micro baton mode (~2 min)
+
+*Use for `/baton micro` invocations — a card-grade baton emitted as a kanban ticket body. Skip Steps 0/2/3/4/5 (their cost is what micro mode exists to avoid). See `references/micro-baton-pattern.md` for the full pattern.*
+
+**The card body — six required lines:**
+
+```
+STATE: where this item stands right now, one or two lines
+TRIED: what was attempted, what failed and why. "nothing yet" is valid
+FILES: absolute paths touched or to-touch
+FIRST COMMAND: one copy-paste-runnable shell line the pickup session executes first
+DONE-WHEN: boolean acceptance check. observable, not vibes
+SESSION: date plus session reference
+```
+
+**Three guardrails** (these are what make a card a baton, not a nag):
+
+1. **DONE-WHEN gates parkability.** If you can't write an observable DONE-WHEN, the item isn't understood well enough to park — resolve or clarify it now, while context is hot, instead of carding a question you'll re-derive later.
+2. **~15-line ceiling.** If the body needs more than ~15 lines, it's a session baton wearing a card costume — write `/baton` and have the card cite it (`SEE: <path>`) instead of inlining.
+3. **Idempotency key from the title.** Re-parking the same item comments the existing card instead of cloning it, so chronic re-parking shows up as one loud card, not five quiet ones.
+
+**Per-card self-test — all three must be yes before the card ships:**
+
+1. Could a cold session run FIRST COMMAND verbatim and be oriented (no edits, no missing env)?
+2. Is DONE-WHEN checkable by observation (not a judgment call)?
+3. Do STATE + TRIED prevent re-walking a dead path?
+
+Any **no** means fix the field or don't park the item.
+
+**Emit (optional).** If your fleet tracks baton observability, emit `baton_emitted` with `micro: true`:
+
+```bash
+bash "$EMIT" <agent> baton_emitted \
+  "Micro baton parked: <card-title>" \
+  "{\"micro\":true,\"card_title\":\"<card-title>\",\"done_when\":\"<one-line>\"}" \
+  completion
+```
+
+The card body is the deliverable; the bus event is bookkeeping. Unlike the other modes, micro mode's output lives on the kanban card, not in a `data/` file.
 
 ---
 
@@ -401,6 +463,7 @@ Or interleave: baton's state-inventory step (Step 0) IS most of what session-end
 - `references/master-baton-pattern.md` — macro-baton checklist for multi-session / multi-repo / compaction-heavy arcs; use when the operator says "master baton"
 - `references/twin-anchor-runtime-campaign.md` — paired master-baton + vision/spec doc pattern for long-running runtime/infrastructure campaigns; includes mock-first safety and branch-hygiene notes
 - `references/master-baton-checkpoint-validation.md` — checkpoint pass for updating exploratory master batons after decisions crystallize, before downstream artifacts or implementation depend on them
+- `references/micro-baton-pattern.md` — card-grade baton pattern for kanban bodies (six-line body, three guardrails, three-question self-test); use for `/baton micro`
 - `references/example.md` — canonical example (referenced from §Canonical example)
 - `references/AUTORESEARCH-SELF-ASSESSMENT.md` — daily improvements log (created by this audit; populated per invocation)
 - `bus event registration` — `baton_emitted` (and future `baton_consumed`) need to land in `<bus-emit-dir>/<bus-emit-script>` allowlist if they're not already auto-allowed. Check: `grep "baton_emitted" <bus-emit-dir>/<bus-emit-script>` — if absent, add to the info-severity allowlist via small follow-up commit.
@@ -409,6 +472,7 @@ Or interleave: baton's state-inventory step (Step 0) IS most of what session-end
 
 ## Changelog
 
+- **v1.5.0 — 2026-07-20 (micro baton mode — the fourth scale)** — Added `/baton micro`, a card-grade baton emitted as a kanban ticket body: six required lines (STATE/TRIED/FILES/FIRST COMMAND/DONE-WHEN/SESSION) so a cold pickup session restarts a card without re-gathering. Completes the fractal ladder: arc (`/master-baton`) → session (`/baton`) → section (`/baton-close`) → card (`/baton micro`). Three guardrails: DONE-WHEN gates parkability, a ~15-line ceiling graduates oversized cards to session batons, and a title-derived idempotency key makes re-parks comment one card instead of cloning five. Per-card self-test (3 questions) is the ship gate; mode path is `1μ → (6 optional)`, deliberately skipping the inventory/dry-run machinery whose cost micro mode exists to avoid. New `references/micro-baton-pattern.md`. **Origin:** proposed by @cogpros ([issue #1](https://github.com/jeremyknows/baton/issues/1)) from production use since May 2026 — the close protocol was carding unresolved work as "title + one line," paying the restart cost at read time (cold, expensive) instead of write time (hot, near-free). The core insight — *the restart cost should be paid when context is hot* — and the self-referential war story (the proposal itself sat un-carded for two weeks and had to be dug out of transcripts) both carried into the reference doc.
 - **v1.4.0 — 2026-05-11 (section closure mode)** — Added `/baton-close` as a third mode for marking completed sections in an existing multi-section baton. Gap surfaced 2026-05-11: Terminal's cos-pulse soak interim baton closed §A + §B but the baton file wasn't updated, leaving phantom live work visible to the cold session. Mode path: 1C → 6 (no re-draft, no dry-run). Frontmatter gains `closed_sections` / `open_sections` lists; `baton_emitted` bus event gains `partial_closure: true` payload flag. Trigger: `/baton-close`, "mark section closed", "update the baton". Does not affect `/baton` or `/master-baton` flows.
 - **v1.3.1 — 2026-05-10 (checkpoint validation before artifactization)** — Added `references/master-baton-checkpoint-validation.md` and linked it from the master-baton workflow/dependencies. Use it when an exploratory master baton has moved through matrix/grill into artifact creation or implementation planning. It instructs agents to run PRISM-lite consistency review, mark superseded pre-grill language as historical, split resolved decisions from still-open questions, verify live profile/workspace/event/source state, and name the next downstream artifact set before building on the baton.
 - **v1.3.0 — 2026-05-10 (mode fork promoted to first-class)** — `/master-baton` added as an explicit trigger. "When to invoke" split into two subsections (session baton vs master baton). "The 5-step pattern" replaced with "The pattern (two modes)" — added mode fork table showing session path (0→1→2→3→4→5→6) vs master path (0→1M→2→3→6). Step 1A renamed to Step 1M with a clear skip directive. Step 1 header clarified as session-baton-only. Frontmatter description rewritten to lead with the two modes. No logic changes — purely surfacing the fork that existed in v1.2.0 but was buried.

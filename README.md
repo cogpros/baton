@@ -1,16 +1,17 @@
 # baton
 
-Three-mode skill for session continuity. Author cold-session-executable prompts, orient multi-session arcs, and close out completed work — all with the same discipline.
+Four-mode skill for session continuity. Author cold-session-executable prompts, orient multi-session arcs, close out completed work, and park single kanban cards — all with the same discipline. **Batons are fractal: one at each scale of parkable work.**
 
 The "baton" is the artifact a cold session reads to pick up where the prior session left off. A good baton lets a fresh session walk the work end-to-end without needing the prior session in-context. A bad baton produces hours of "what does this mean?" plus accidental scope-creep plus missed verification.
 
-## Three modes
+## Four modes
 
-| Mode | Trigger | When to use |
-|------|---------|-------------|
-| **Session baton** (`/baton`) | "write the baton", "/baton", "make a baton" | Session has concrete follow-on work for the next session |
-| **Master baton** (`/master-baton`) | "master baton", "/master-baton", "cross-session baton" | Work spans many sessions, context compactions, repos, or gates — needs a stable arc doc |
-| **Section closure** (`/baton-close`) | "/baton-close \<path\>", "mark section closed", "close section X" | Session completed some sections of a multi-section baton but not all — mark closed so cold sessions don't re-execute |
+| Mode | Scale | Trigger | When to use |
+|------|-------|---------|-------------|
+| **Master baton** (`/master-baton`) | arc | "master baton", "/master-baton", "cross-session baton" | Work spans many sessions, context compactions, repos, or gates — needs a stable arc doc |
+| **Session baton** (`/baton`) | session | "write the baton", "/baton", "make a baton" | Session has concrete follow-on work for the next session |
+| **Section closure** (`/baton-close`) | section | "/baton-close \<path\>", "mark section closed", "close section X" | Session completed some sections of a multi-section baton but not all — mark closed so cold sessions don't re-execute |
+| **Micro baton** (`/baton micro`) | card | "/baton micro", "park this as a card", "kanban baton" | Parking one kanban item — emit a six-line restart-ready body so the pickup pays no cold-start tax |
 
 ## What it does
 
@@ -29,7 +30,13 @@ The "baton" is the artifact a cold session reads to pick up where the prior sess
 - Updates frontmatter with `closed_sections` / `open_sections` lists so the cold session's section selector is accurate
 - 5-minute operation: no re-draft, no dry-run — just state-transition markers + bus event
 
-All modes emit a `baton_emitted` bus event (with mode-appropriate payload) and log to a per-skill autoresearch self-assessment file so improvements compound.
+**Micro baton (`/baton micro`):**
+- Emits a **card-grade baton as a kanban ticket body** — six required lines (STATE / TRIED / FILES / FIRST COMMAND / DONE-WHEN / SESSION)
+- Runs under one rule: **no kanban ticket exists without a baton to feed its restart** — pay the cost at write time (hot), not read time (cold)
+- Three guardrails: DONE-WHEN gates parkability · a ~15-line ceiling graduates oversized cards to session batons · a title-derived idempotency key makes re-parks comment one card instead of cloning five
+- ~2-minute operation, gated on a three-question self-test — see [`references/micro-baton-pattern.md`](references/micro-baton-pattern.md)
+
+The heavier modes emit a `baton_emitted` bus event (with mode-appropriate payload) and log to a per-skill autoresearch self-assessment file so improvements compound.
 
 ## Quick start
 
@@ -45,6 +52,10 @@ All modes emit a `baton_emitted` bus event (with mode-appropriate payload) and l
 # Section closure — mark completed sections without re-drafting
 "/baton-close ~/path/to/existing-baton.md"
 "mark section A closed"
+
+# Micro baton — park one kanban card with a restart-ready body
+"/baton micro"
+"park this as a card"
 ```
 
 The session baton writes to `<workspace>/agents/<agent>/data/<YYYY-MM-DD>-next-session-<topic>-prompt.md` (gitignored by Atlas convention).
@@ -66,6 +77,11 @@ The master baton writes to a durable docs namespace (versioned, not gitignored).
 **Section closure:**
 - Session completed one or more sections of an existing multi-section baton but NOT all sections
 - The baton file would mislead a cold session because completed sections still appear as live work
+
+**Micro baton:**
+- A close-out triage is promoting an unresolved item to a kanban card that needs a restart-ready body
+- You're parking one ticket's worth of work (or an idea) below session scale
+- Guardrail: if you can't write an observable DONE-WHEN, the item isn't ready to park — resolve or clarify it instead
 
 **Skip when:**
 - Session completed all its work end-to-end (use `session-end` only — no baton needed)
