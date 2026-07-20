@@ -61,6 +61,8 @@ The pattern that keeps this from drifting: closing-time skills that triage unres
 
 If your setup has multiple close protocols (session-end, a retro skill, a triage skill), point all of them at this one body spec rather than letting each grow its own card format.
 
+The generalized wiring is specified in [`micro-baton-wiring.md`](micro-baton-wiring.md): the shared clarify step, caller profiles (interactive, autonomous, fleet-wide), key and creator conventions on the creation call, and greppable drift checks.
+
 ## The self-referential war story
 
 cogpros's own filing carried the proof: *"this post is two weeks old. i drafted it, parked it for myself to send, and it never got its own card. no baton, no restart line. it sat invisible until i half-remembered it and my agent had to dig it out of session transcripts. we paid the restart cost at read time on the exact post that says don't do that."*
